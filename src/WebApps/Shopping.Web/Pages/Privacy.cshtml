@@ -1,0 +1,64 @@
+@page
+@model PrivacyModel
+@{
+    ViewData["Title"] = "Privacy";
+}
+
+<div class="container">
+
+    <nav aria-label="Breadcrumb">
+        <ol class="crumbs">
+            <li><a asp-page="/Index">Home</a></li>
+            <li aria-current="page">Privacy</li>
+        </ol>
+    </nav>
+
+    <header class="page-head">
+        <h1 class="page-head__title">Privacy</h1>
+        <p class="page-head__meta">How this demo handles your data.</p>
+    </header>
+
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <div class="panel">
+                <div class="panel__body stack-5">
+                    <div class="note note--info">
+                        <svg width="17" height="17" aria-hidden="true"><use href="#i-alert"/></svg>
+                        <span>
+                            Nexus is a portfolio project, not a real shop. No real orders are
+                            fulfilled and no payments are processed.
+                        </span>
+                    </div>
+
+                    <div>
+                        <h2 class="t-lg">What gets stored</h2>
+                        <p class="muted" style="margin-top:var(--s-3)">
+                            Cart contents are held against a fixed demo username in Redis and
+                            PostgreSQL. Checkout details you type are passed to the ordering
+                            service and stored in its SQL Server database so the order history
+                            page has something to show.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h2 class="t-lg">Payment details</h2>
+                        <p class="muted" style="margin-top:var(--s-3)">
+                            Do not enter real card numbers. The checkout form accepts any
+                            placeholder value, performs no payment authorisation, and exists
+                            purely to exercise the ordering flow end to end.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h2 class="t-lg">Tracking</h2>
+                        <p class="muted" style="margin-top:var(--s-3)">
+                            There is no analytics, no advertising, and no third-party tracking
+                            on this site.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

@@ -1,0 +1,96 @@
+@page
+@model Shopping.Web.Pages.ProductListModel
+@{
+    var hasCategory = !string.IsNullOrWhiteSpace(Model.SelectedCategory);
+    var hasQuery = !string.IsNullOrWhiteSpace(Model.Query);
+    ViewData["Title"] = hasCategory ? Model.SelectedCategory : "Shop";
+
+    var products = Model.ProductList.ToList();
+}
+
+<div class="container">
+
+    <nav aria-label="Breadcrumb">
+        <ol class="crumbs">
+            <li><a asp-page="/Index">Home</a></li>
+            <li><a asp-page="/ProductList">Shop</a></li>
+            @if (hasCategory)
+            {
+                <li aria-current="page">@Model.SelectedCategory</li>
+            }
+        </ol>
+    </nav>
+
+    <header class="page-head">
+        <h1 class="page-head__title">
+            @if (hasQuery)
+            {
+                @:Results for &ldquo;@Model.Query&rdquo;
+            }
+            else if (hasCategory)
+            {
+                @Model.SelectedCategory
+            }
+            else
+            {
+                @:All products
+            }
+        </h1>
+        <p class="page-head__meta">
+            @products.Count @(products.Count == 1 ? "product" : "products")
+            @if (hasCategory || hasQuery)
+            {
+                <text>·</text> <a asp-page="/ProductList">Clear filters</a>
+            }
+        </p>
+    </header>
+
+    @if (Model.CategoryList.Any())
+    {
+        <div class="filter-bar">
+            <a class="chip @(hasCategory ? "" : "is-active")" asp-page="/ProductList">All</a>
+            @foreach (var category in Model.CategoryList)
+            {
+                var isActive = hasCategory &&
+                    string.Equals(category, Model.SelectedCategory, StringComparison.OrdinalIgnoreCase);
+                <a class="chip @(isActive ? "is-active" : "")"
+                   asp-page="/ProductList" asp-route-categoryName="@category">@category</a>
+            }
+        </div>
+    }
+
+    @if (products.Any())
+    {
+        <div class="product-grid">
+            @foreach (var product in products)
+            {
+                <partial name="_ProductItemPartial" model="product" />
+            }
+        </div>
+    }
+    else
+    {
+        <div class="panel">
+            <div class="empty">
+                <span class="empty__icon">
+                    <svg width="22" height="22" aria-hidden="true"><use href="#i-search"/></svg>
+                </span>
+                <h2 class="empty__title">Nothing matched</h2>
+                <p class="empty__text">
+                    @if (hasQuery)
+                    {
+                        <text>No products match &ldquo;@Model.Query&rdquo;. Try a different search term.</text>
+                    }
+                    else
+                    {
+                        <text>There are no products in this category yet.</text>
+                    }
+                </p>
+                <div class="empty__actions">
+                    <a class="btn btn--primary" asp-page="/ProductList">Browse all products</a>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>

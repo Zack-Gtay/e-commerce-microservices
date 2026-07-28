@@ -1,0 +1,102 @@
+@page
+@model Shopping.Web.Pages.OrderListModel
+@{
+    ViewData["Title"] = "Orders";
+    var orders = (Model.Orders ?? Enumerable.Empty<OrderModel>()).ToList();
+
+    string PillClass(OrderStatus status) => status switch
+    {
+        OrderStatus.Completed => "pill pill--completed",
+        OrderStatus.Pending   => "pill pill--pending",
+        OrderStatus.Cancelled => "pill pill--cancelled",
+        _                     => "pill pill--draft"
+    };
+}
+
+<div class="container">
+
+    <nav aria-label="Breadcrumb">
+        <ol class="crumbs">
+            <li><a asp-page="/Index">Home</a></li>
+            <li aria-current="page">Orders</li>
+        </ol>
+    </nav>
+
+    <header class="page-head">
+        <h1 class="page-head__title">Your orders</h1>
+        <p class="page-head__meta">@orders.Count @(orders.Count == 1 ? "order" : "orders")</p>
+    </header>
+
+    @if (!orders.Any())
+    {
+        <div class="panel">
+            <div class="empty">
+                <span class="empty__icon">
+                    <svg width="22" height="22" aria-hidden="true"><use href="#i-package"/></svg>
+                </span>
+                <h2 class="empty__title">No orders yet</h2>
+                <p class="empty__text">
+                    Once you place an order it will appear here, along with its status
+                    as the ordering service processes it.
+                </p>
+                <div class="empty__actions">
+                    <a class="btn btn--primary" asp-page="/ProductList">
+                        Start shopping
+                        <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="panel">
+            <div class="table-scroll">
+                <table class="data-table">
+                    <caption class="sr-only">Your order history</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Order</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Ship to</th>
+                            <th scope="col">Items</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="num">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var order in orders)
+                        {
+                            var total = order.OrderItems.Sum(x => x.Price * x.Quantity);
+                            var itemCount = order.OrderItems.Sum(x => x.Quantity);
+                            <tr>
+                                <td>
+                                    <span class="cell-product__name">@order.OrderName</span><br />
+                                    <span class="cell-product__meta">@order.Payment.CardName</span>
+                                </td>
+                                <td>
+                                    <span>@order.ShippingAddress.FirstName @order.ShippingAddress.LastName</span><br />
+                                    <span class="cell-product__meta">@order.ShippingAddress.EmailAddress</span>
+                                </td>
+                                <td class="muted">
+                                    @order.ShippingAddress.AddressLine<br />
+                                    <span class="cell-product__meta">
+                                        @order.ShippingAddress.State, @order.ShippingAddress.Country
+                                    </span>
+                                </td>
+                                <td class="muted nums">@itemCount</td>
+                                <td><span class="@PillClass(order.Status)">@order.Status</span></td>
+                                <td class="num fw-550">@total.ToMoney()</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="cluster" style="margin-top:var(--s-5)">
+            <a class="btn btn--secondary" asp-page="/ProductList">Continue shopping</a>
+        </div>
+    }
+
+</div>

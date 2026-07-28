@@ -1,0 +1,237 @@
+@page
+@model Shopping.Web.Pages.CheckoutModel
+@{
+    ViewData["Title"] = "Checkout";
+    var items = Model.Cart?.Items ?? new List<ShoppingCartItemModel>();
+    var total = items.Sum(i => i.Price * i.Quantity);
+}
+
+<div class="container">
+
+    <nav aria-label="Breadcrumb">
+        <ol class="crumbs">
+            <li><a asp-page="/Index">Home</a></li>
+            <li><a asp-page="/Cart">Cart</a></li>
+            <li aria-current="page">Checkout</li>
+        </ol>
+    </nav>
+
+    <header class="page-head">
+        <h1 class="page-head__title">Checkout</h1>
+        <p class="page-head__meta">Shipping and payment details</p>
+    </header>
+
+    @if (!items.Any())
+    {
+        <div class="panel">
+            <div class="empty">
+                <span class="empty__icon">
+                    <svg width="22" height="22" aria-hidden="true"><use href="#i-bag"/></svg>
+                </span>
+                <h2 class="empty__title">Nothing to check out</h2>
+                <p class="empty__text">Your cart is empty, so there is no order to place yet.</p>
+                <div class="empty__actions">
+                    <a class="btn btn--primary" asp-page="/ProductList">Browse products</a>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <form asp-page-handler="CheckOut" method="post" data-validate data-submit-once>
+            <div class="row g-4">
+
+                <div class="col-12 col-lg-7">
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="note note--err" role="alert">
+                            <svg width="17" height="17" aria-hidden="true"><use href="#i-alert"/></svg>
+                            <div asp-validation-summary="All"></div>
+                        </div>
+                    }
+
+                    <div class="panel">
+                        <div class="panel__head">
+                            <h2 class="panel__title">Shipping address</h2>
+                        </div>
+                        <div class="panel__body">
+                            <div class="row">
+                                <div class="col-12 col-sm-6">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.FirstName">First name</label>
+                                        <input class="input" asp-for="Order.FirstName" required autocomplete="given-name" />
+                                        <span class="field-error" asp-validation-for="Order.FirstName"></span>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.LastName">Last name</label>
+                                        <input class="input" asp-for="Order.LastName" required autocomplete="family-name" />
+                                        <span class="field-error" asp-validation-for="Order.LastName"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label class="field__label" asp-for="Order.EmailAddress">Email</label>
+                                <input class="input" asp-for="Order.EmailAddress" type="email" required autocomplete="email" />
+                                <span class="field__hint">Order confirmation is sent here.</span>
+                                <span class="field-error" asp-validation-for="Order.EmailAddress"></span>
+                            </div>
+
+                            <div class="field">
+                                <label class="field__label" asp-for="Order.AddressLine">Address</label>
+                                <input class="input" asp-for="Order.AddressLine" required autocomplete="street-address" />
+                                <span class="field-error" asp-validation-for="Order.AddressLine"></span>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12 col-sm-5">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.Country">Country</label>
+                                        <input class="input" asp-for="Order.Country" required autocomplete="country-name" />
+                                        <span class="field-error" asp-validation-for="Order.Country"></span>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-4">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.State">State</label>
+                                        <input class="input" asp-for="Order.State" required autocomplete="address-level1" />
+                                        <span class="field-error" asp-validation-for="Order.State"></span>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-3">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.ZipCode">ZIP</label>
+                                        <input class="input" asp-for="Order.ZipCode" required autocomplete="postal-code" />
+                                        <span class="field-error" asp-validation-for="Order.ZipCode"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="margin-top:var(--s-5)">
+                        <div class="panel__head">
+                            <h2 class="panel__title">Payment</h2>
+                            <span class="pill pill--completed">
+                                <svg width="12" height="12" aria-hidden="true"><use href="#i-shield"/></svg>
+                                Secure
+                            </span>
+                        </div>
+                        <div class="panel__body">
+                            <div class="field">
+                                <label class="field__label" asp-for="Order.CardName">Name on card</label>
+                                <input class="input" asp-for="Order.CardName" required autocomplete="cc-name" />
+                                <span class="field-error" asp-validation-for="Order.CardName"></span>
+                            </div>
+
+                            <div class="field">
+                                <label class="field__label" asp-for="Order.CardNumber">Card number</label>
+                                <input class="input" asp-for="Order.CardNumber" required inputmode="numeric"
+                                       autocomplete="cc-number" placeholder="0000 0000 0000 0000" />
+                                <span class="field-error" asp-validation-for="Order.CardNumber"></span>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12 col-sm-4">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.Expiration">Expiry</label>
+                                        <input class="input" asp-for="Order.Expiration" required
+                                               autocomplete="cc-exp" placeholder="MM/YY" />
+                                        <span class="field-error" asp-validation-for="Order.Expiration"></span>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-3">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.CVV">CVV</label>
+                                        <input class="input" asp-for="Order.CVV" required inputmode="numeric"
+                                               autocomplete="cc-csc" placeholder="123" />
+                                        <span class="field-error" asp-validation-for="Order.CVV"></span>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-5">
+                                    <div class="field">
+                                        <label class="field__label" asp-for="Order.PaymentMethod">Method</label>
+                                        <select class="select" asp-for="Order.PaymentMethod">
+                                            <option value="1">Credit card</option>
+                                            <option value="2">Debit card</option>
+                                            <option value="3">Bank transfer</option>
+                                        </select>
+                                        <span class="field-error" asp-validation-for="Order.PaymentMethod"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="note note--info">
+                                <svg width="17" height="17" aria-hidden="true"><use href="#i-alert"/></svg>
+                                <span>
+                                    Demo storefront. No payment is processed and no card
+                                    details are stored. Use any placeholder values.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-5">
+                    <div class="panel">
+                        <div class="panel__head">
+                            <h2 class="panel__title">Order summary</h2>
+                            <a class="t-sm" asp-page="/Cart">Edit</a>
+                        </div>
+                        <div class="panel__body">
+                            <div class="stack-4">
+                                @foreach (var item in items)
+                                {
+                                    <div class="cluster cluster--between">
+                                        <span class="cell-product">
+                                            <span class="thumb d-grid" style="place-items:center;">
+                                                <svg width="16" height="16" aria-hidden="true" style="color:var(--fg-subtle)"><use href="#i-package"/></svg>
+                                            </span>
+                                            <span>
+                                                <span class="cell-product__name">@item.ProductName</span><br />
+                                                <span class="cell-product__meta">@item.Color · Qty @item.Quantity</span>
+                                            </span>
+                                        </span>
+                                        <span class="nums fw-550">@((item.Price * item.Quantity).ToMoney())</span>
+                                    </div>
+                                }
+                            </div>
+
+                            <div style="margin-top:var(--s-5)">
+                                <div class="summary-row">
+                                    <span>Subtotal</span>
+                                    <span>@total.ToMoney()</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>Shipping</span>
+                                    <span>Free</span>
+                                </div>
+                                <div class="summary-row summary-row--total">
+                                    <span>Total</span>
+                                    <span>@total.ToMoney()</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="panel__foot">
+                            <button type="submit" class="btn btn--primary btn--lg btn--block">
+                                Place order
+                                <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                            </button>
+                            <p class="t-xs subtle" style="margin-top:var(--s-3); text-align:center;">
+                                By placing this order you agree to our terms.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </form>
+    }
+
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

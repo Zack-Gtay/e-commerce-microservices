@@ -1,0 +1,88 @@
+@page
+@model Shopping.Web.Pages.ContactModel
+@{
+    ViewData["Title"] = "Contact";
+}
+
+<div class="container">
+
+    <nav aria-label="Breadcrumb">
+        <ol class="crumbs">
+            <li><a asp-page="/Index">Home</a></li>
+            <li aria-current="page">Contact</li>
+        </ol>
+    </nav>
+
+    <header class="page-head">
+        <h1 class="page-head__title">Get in touch</h1>
+        <p class="page-head__meta">We usually reply within one business day.</p>
+    </header>
+
+    <div class="row g-4">
+        <div class="col-12 col-lg-7">
+            <div class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">Send a message</h2>
+                </div>
+                <div class="panel__body">
+                    <form method="post" data-validate>
+                        <div class="field">
+                            <label class="field__label" for="contact-name">Name</label>
+                            <input class="input" type="text" id="contact-name" name="name"
+                                   required autocomplete="name" placeholder="Your name" />
+                        </div>
+
+                        <div class="field">
+                            <label class="field__label" for="contact-email">Email</label>
+                            <input class="input" type="email" id="contact-email" name="email"
+                                   required autocomplete="email" placeholder="you@example.com" />
+                            <span class="field__hint">We'll never share your email with anyone else.</span>
+                        </div>
+
+                        <div class="field">
+                            <label class="field__label" for="contact-message">Message</label>
+                            <textarea class="textarea" id="contact-message" name="message" rows="6"
+                                      required placeholder="How can we help?"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn btn--primary">Send message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <div class="panel">
+                <div class="panel__head">
+                    <h2 class="panel__title">Other ways to reach us</h2>
+                </div>
+                <div class="panel__body stack-5">
+                    <div>
+                        <h3 class="t-sm fw-600">Support</h3>
+                        <p class="muted t-sm" style="margin-top:var(--s-2)">
+                            <a href="mailto:support@nexus.example">support@nexus.example</a><br />
+                            Monday to Friday, 9:00 to 18:00
+                        </p>
+                    </div>
+
+                    <div>
+                        <h3 class="t-sm fw-600">Order enquiries</h3>
+                        <p class="muted t-sm" style="margin-top:var(--s-2)">
+                            Check <a asp-page="/OrderList">your order history</a> first. Most
+                            questions are answered by the order status there.
+                        </p>
+                    </div>
+
+                    <div class="note note--info">
+                        <svg width="17" height="17" aria-hidden="true"><use href="#i-alert"/></svg>
+                        <span>
+                            This is a portfolio project. The contact form is a UI
+                            demonstration and does not deliver mail.
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

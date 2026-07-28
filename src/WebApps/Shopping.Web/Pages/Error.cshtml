@@ -1,0 +1,37 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Something went wrong";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="panel" style="margin-top:var(--s-9)">
+                <div class="empty">
+                    <span class="empty__icon" style="background:var(--err-bg); border-color:var(--err-br); color:var(--err-fg)">
+                        <svg width="24" height="24" aria-hidden="true"><use href="#i-alert"/></svg>
+                    </span>
+
+                    <h1 class="empty__title">Something went wrong</h1>
+                    <p class="empty__text">
+                        We hit an unexpected error while handling your request. Trying again
+                        often works, since one of the backend services may still be starting up.
+                    </p>
+
+                    @if (Model.ShowRequestId)
+                    {
+                        <p class="t-sm subtle" style="margin-top:var(--s-4)">
+                            Request ID <code>@Model.RequestId</code>
+                        </p>
+                    }
+
+                    <div class="empty__actions cluster">
+                        <a class="btn btn--primary" asp-page="/Index">Back to home</a>
+                        <a class="btn btn--secondary" asp-page="/ProductList">Browse products</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

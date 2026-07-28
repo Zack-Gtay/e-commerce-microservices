@@ -1,0 +1,40 @@
+@page
+@model Shopping.Web.Pages.ConfirmationModel
+@{
+    ViewData["Title"] = "Confirmation";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="panel" style="margin-top:var(--s-9)">
+                <div class="empty">
+                    <span class="empty__icon" style="background:var(--ok-bg); border-color:var(--ok-br); color:var(--ok-fg)">
+                        <svg width="24" height="24" aria-hidden="true"><use href="#i-check"/></svg>
+                    </span>
+
+                    <h1 class="empty__title">
+                        @(string.IsNullOrEmpty(Model.Message) ? "All done" : Model.Message)
+                    </h1>
+
+                    <p class="empty__text">
+                        Your order has been published to the ordering service and is being
+                        processed. You can follow its status from your order history.
+                    </p>
+
+                    <div class="empty__actions cluster">
+                        <a class="btn btn--primary" asp-page="/OrderList">
+                            View orders
+                            <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                        </a>
+                        <a class="btn btn--secondary" asp-page="/ProductList">Continue shopping</a>
+                    </div>
+                </div>
+            </div>
+
+            <p class="t-sm subtle" style="margin-top:var(--s-5); text-align:center;">
+                Questions about this order? <a asp-page="/Contact">Get in touch</a>.
+            </p>
+        </div>
+    </div>
+</div>

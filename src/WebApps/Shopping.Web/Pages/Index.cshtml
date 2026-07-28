@@ -1,0 +1,129 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home";
+    var products = Model.ProductList.ToList();
+    var featured = products.FirstOrDefault();
+    var categories = products.SelectMany(p => p.Category).Distinct().Take(4).ToList();
+}
+
+<div class="container">
+
+    <section class="hero">
+        <div>
+            <span class="hero__eyebrow">
+                <svg width="12" height="12" aria-hidden="true"><use href="#i-package"/></svg>
+                Free delivery on every order
+            </span>
+            <h1 class="hero__title">Technology worth keeping.</h1>
+            <p class="hero__lead">
+                Phones, cameras and home appliances, curated, honestly priced, and
+                shipped fast. Browse the full catalog below.
+            </p>
+            <div class="hero__actions">
+                <a class="btn btn--primary btn--lg" asp-page="/ProductList">
+                    Shop all products
+                    <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+                </a>
+                @if (featured is not null)
+                {
+                    <a class="btn btn--secondary btn--lg" asp-page="/ProductDetail" asp-route-productId="@featured.Id">
+                        View @featured.Name
+                    </a>
+                }
+            </div>
+        </div>
+
+        <div class="hero__media">
+            <img src="~/images/banner/banner1.png" alt="" asp-append-version="true" />
+        </div>
+    </section>
+
+    @if (categories.Any())
+    {
+        <section class="section">
+            <div class="section-head">
+                <h2 class="section-head__title">Browse by category</h2>
+            </div>
+            <div class="filter-bar">
+                @foreach (var category in categories)
+                {
+                    <a class="chip" asp-page="/ProductList" asp-route-categoryName="@category">@category</a>
+                }
+            </div>
+        </section>
+    }
+
+    @if (products.Any())
+    {
+        <section class="section">
+            <div class="section-head">
+                <h2 class="section-head__title">New arrivals</h2>
+                <a class="section-head__link" asp-page="/ProductList">View all</a>
+            </div>
+            <div class="product-grid">
+                @foreach (var product in products.Take(4))
+                {
+                    <partial name="_ProductItemPartial" model="product" />
+                }
+            </div>
+        </section>
+
+        @if (products.Count > 4)
+        {
+            <section class="section">
+                <div class="section-head">
+                    <h2 class="section-head__title">Also popular</h2>
+                    <a class="section-head__link" asp-page="/ProductList">View all</a>
+                </div>
+                <div class="product-grid">
+                    @foreach (var product in products.TakeLast(4))
+                    {
+                        <partial name="_ProductItemPartial" model="product" />
+                    }
+                </div>
+            </section>
+        }
+    }
+    else
+    {
+        <section class="section">
+            <div class="panel">
+                <div class="empty">
+                    <span class="empty__icon">
+                        <svg width="22" height="22" aria-hidden="true"><use href="#i-package"/></svg>
+                    </span>
+                    <h2 class="empty__title">No products yet</h2>
+                    <p class="empty__text">
+                        The catalog service returned no products. If you just started the
+                        stack, give it a moment to seed and then refresh.
+                    </p>
+                    <div class="empty__actions">
+                        <a class="btn btn--secondary" asp-page="/Index">
+                            <svg width="15" height="15" aria-hidden="true"><use href="#i-rotate"/></svg>
+                            Refresh
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
+    <section class="section">
+        <div class="assurances assurances--flush">
+            <div class="assurance">
+                <svg width="20" height="20" aria-hidden="true"><use href="#i-truck"/></svg>
+                <span><strong>Fast delivery</strong>Dispatched within 24 hours</span>
+            </div>
+            <div class="assurance">
+                <svg width="20" height="20" aria-hidden="true"><use href="#i-shield"/></svg>
+                <span><strong>Secure payment</strong>Encrypted end to end</span>
+            </div>
+            <div class="assurance">
+                <svg width="20" height="20" aria-hidden="true"><use href="#i-rotate"/></svg>
+                <span><strong>30-day returns</strong>No questions asked</span>
+            </div>
+        </div>
+    </section>
+
+</div>

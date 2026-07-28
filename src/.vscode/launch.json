@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Docker Compose",
+      "type": "docker",
+      "request": "launch",
+      "preLaunchTask": "docker-compose: up",
+      "dockerCompose": {
+        "file": "${workspaceFolder}/docker-compose.yml"
+      }
+    }
+  ]
+}

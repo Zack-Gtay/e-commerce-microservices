@@ -1,0 +1,34 @@
+@model ProductModel
+
+<article class="product-card">
+    <a class="product-card__media" asp-page="/ProductDetail" asp-route-productId="@Model.Id"
+       aria-label="View @Model.Name">
+        <img src="~/images/product/@Model.ImageFile" alt="@Model.Name" loading="lazy" asp-append-version="true" />
+    </a>
+
+    <div class="product-card__body">
+        @if (Model.Category.Any())
+        {
+            <span class="product-card__cat">@Model.Category.First()</span>
+        }
+
+        <h3 class="product-card__name">
+            <a asp-page="/ProductDetail" asp-route-productId="@Model.Id">@Model.Name</a>
+        </h3>
+
+        <p class="product-card__desc">@Model.Description</p>
+
+        <div class="product-card__foot">
+            <span class="product-card__price">@Model.Price.ToMoney()</span>
+
+            <form class="product-card__action" asp-page-handler="AddToCart" method="post">
+                <input type="hidden" name="productId" value="@Model.Id" />
+                <button type="submit" class="btn btn--secondary btn--sm">
+                    <svg width="14" height="14" aria-hidden="true"><use href="#i-cart"/></svg>
+                    Add
+                    <span class="sr-only">@Model.Name to cart</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</article>

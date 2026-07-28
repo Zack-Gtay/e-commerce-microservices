@@ -1,0 +1,121 @@
+@page
+@model Shopping.Web.Pages.ProductDetailModel
+@{
+    ViewData["Title"] = Model.Product.Name;
+    var category = Model.Product.Category.FirstOrDefault();
+    var heroImage = Model.Product.ImageFile.Replace('-', 'x');
+}
+
+<div class="container">
+
+    <nav aria-label="Breadcrumb">
+        <ol class="crumbs">
+            <li><a asp-page="/Index">Home</a></li>
+            <li><a asp-page="/ProductList">Shop</a></li>
+            @if (category is not null)
+            {
+                <li><a asp-page="/ProductList" asp-route-categoryName="@category">@category</a></li>
+            }
+            <li aria-current="page">@Model.Product.Name</li>
+        </ol>
+    </nav>
+
+    <div class="pdp">
+
+        <div class="pdp__gallery">
+            <img src="~/images/product/@heroImage" alt="@Model.Product.Name" asp-append-version="true" />
+        </div>
+
+        <div>
+            @if (category is not null)
+            {
+                <span class="pdp__cat">@category</span>
+            }
+            <h1 class="pdp__title">@Model.Product.Name</h1>
+
+            <div class="pdp__price">
+                <span class="pdp__price-now">@Model.Product.Price.ToMoney()</span>
+                <span class="pdp__price-was">@((Model.Product.Price + 120).ToMoney())</span>
+            </div>
+
+            <p class="pdp__desc">@Model.Product.Description</p>
+
+            <div class="pdp__divider"></div>
+
+            <form asp-page-handler="AddToCart" method="post" class="stack-5">
+                <input type="hidden" name="productId" value="@Model.Product.Id" />
+
+                <div class="field">
+                    <span class="field__label" id="color-label">Colour</span>
+                    <div class="swatches" role="radiogroup" aria-labelledby="color-label">
+                        @foreach (var color in new[] { "Black", "Blue", "Red", "Green" })
+                        {
+                            <label class="swatch">
+                                <input type="radio" asp-for="Color" value="@color" checked="@(color == "Black")" />
+                                <span>@color</span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="Quantity">Quantity</label>
+                    <div class="cluster">
+                        <div class="stepper" data-stepper>
+                            <button class="stepper__btn" type="button" data-stepper-dec aria-label="Decrease quantity">
+                                <svg width="15" height="15" aria-hidden="true"><use href="#i-minus"/></svg>
+                            </button>
+                            <input class="stepper__input" data-stepper-input type="number"
+                                   asp-for="Quantity" id="Quantity" value="1" min="1" max="99" />
+                            <button class="stepper__btn" type="button" data-stepper-inc aria-label="Increase quantity">
+                                <svg width="15" height="15" aria-hidden="true"><use href="#i-plus"/></svg>
+                            </button>
+                        </div>
+                        <span class="t-sm muted">In stock</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn--primary btn--lg btn--block">
+                    <svg width="17" height="17" aria-hidden="true"><use href="#i-cart"/></svg>
+                    Add to cart
+                </button>
+            </form>
+
+            <div class="assurances">
+                <div class="assurance">
+                    <svg width="20" height="20" aria-hidden="true"><use href="#i-truck"/></svg>
+                    <span><strong>Free delivery</strong>2 to 4 business days</span>
+                </div>
+                <div class="assurance">
+                    <svg width="20" height="20" aria-hidden="true"><use href="#i-shield"/></svg>
+                    <span><strong>2-year warranty</strong>Covered by us</span>
+                </div>
+                <div class="assurance">
+                    <svg width="20" height="20" aria-hidden="true"><use href="#i-rotate"/></svg>
+                    <span><strong>30-day returns</strong>Free of charge</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <section class="section">
+        <div class="panel">
+            <div class="panel__head">
+                <h2 class="panel__title">Product details</h2>
+            </div>
+            <div class="panel__body stack-4">
+                <p class="muted">@Model.Product.Description</p>
+                <dl class="summary-row" style="border-top:1px solid var(--border); margin-top:var(--s-4); padding-top:var(--s-4);">
+                    <dt>Category</dt>
+                    <dd class="mb-0">@string.Join(", ", Model.Product.Category)</dd>
+                </dl>
+                <div class="summary-row">
+                    <span>Price</span>
+                    <span>@Model.Product.Price.ToMoney()</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
