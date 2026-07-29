@@ -23,7 +23,7 @@ practice.
     "mainBkg": "#ffffff",
     "clusterBkg": "#f6f8fa",
     "clusterBorder": "#d0d7de",
-    "edgeLabelBackground": "#ffffff",
+    "edgeLabelBackground": "transparent",
     "titleColor": "#1f2328"
 }}}%%
 flowchart TB
@@ -87,6 +87,9 @@ flowchart TB
     class MQ bus
     class WEB,GW edge
     class BROWSER ext
+
+    style docker fill:#f6f8fa,stroke:#d0d7de,rx:18,ry:18
+    linkStyle 0 color:#ffffff
 ```
 
 Every box inside the boundary is a container declared in `docker-compose.yml` and built
