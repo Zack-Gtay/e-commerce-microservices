@@ -109,6 +109,41 @@ The `:6000` to `:6005` host ports shown in the diagram exist only so you can hit
 services from your machine while debugging. A single `docker compose up` builds and starts
 the entire system.
 
+### The 11 containers
+
+`docker-compose.yml` declares exactly eleven services: six application containers built
+from source, and five infrastructure containers pulled from public images.
+
+**Application containers** — built from a `Dockerfile` in this repo, all listening on
+`8080` (HTTP) and `8081` (HTTPS) inside the network:
+
+| # | Compose service | Image | Host ports | Role |
+|---|---|---|---|---|
+| 1 | `catalog.api` | `catalogapi` (built) | 6000, 6060 | Product catalog, vertical slices over Marten |
+| 2 | `basket.api` | `basketapi` (built) | 6001, 6061 | Shopping cart, Redis cache-aside, publishes checkout events |
+| 3 | `discount.grpc` | `discountgrpc` (built) | 6002, 6062 | gRPC discount server, SQLite file inside the container |
+| 4 | `ordering.api` | `orderingapi` (built) | 6003, 6063 | Clean Architecture + DDD, consumes checkout events |
+| 5 | `yarpapigateway` | `yarpapigateway` (built) | 6004 | Single entry point, routing + rate limiting |
+| 6 | `shopping.web` | `shoppingweb` (built) | 6005 | Razor Pages storefront, talks only to the gateway |
+
+**Infrastructure containers** — official images, `restart: always`:
+
+| # | Compose service | Image | Host ports | Role |
+|---|---|---|---|---|
+| 7 | `catalogdb` | `postgres` | 5432 | Catalog document store, volume `postgres_catalog` |
+| 8 | `basketdb` | `postgres` | 5433 → 5432 | Basket document store, volume `postgres_basket` |
+| 9 | `distributedcache` | `redis` | 6379 | Basket distributed cache |
+| 10 | `orderdb` | `mcr.microsoft.com/mssql/server` | 1433 | Ordering relational store (EF Core) |
+| 11 | `messagebroker` | `rabbitmq:management` | 5672, 15672 | Event bus, hostname `ecommerce-mq`, management UI |
+
+Discount has no database container of its own: it keeps a SQLite file inside its own
+container, which is why the count is eleven rather than twelve.
+
+Startup order is expressed with `depends_on`: `shopping.web` waits on `yarpapigateway`,
+which waits on the three HTTP APIs; `basket.api` waits on `basketdb`,
+`distributedcache`, `discount.grpc` and `messagebroker`; `catalog.api` on `catalogdb`;
+`ordering.api` on `orderdb` and `messagebroker`.
+
 ### Checkout workflow
 
 The full path a checkout takes through the system, showing where communication is
