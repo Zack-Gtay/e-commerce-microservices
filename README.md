@@ -23,7 +23,7 @@ practice.
     "mainBkg": "#ffffff",
     "clusterBkg": "#f6f8fa",
     "clusterBorder": "#d0d7de",
-    "edgeLabelBackground": "transparent",
+    "edgeLabelBackground": "#f6f8fa",
     "titleColor": "#1f2328"
 }}}%%
 flowchart TB
