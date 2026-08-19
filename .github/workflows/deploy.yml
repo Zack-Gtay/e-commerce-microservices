@@ -1,0 +1,132 @@
+name: Deploy to ECS
+
+# Rolling deploy of an already-published image to ECS Fargate.
+#
+# Deliberately decoupled from image publishing: this workflow only ever *points* a service
+# at an existing immutable tag. That makes a rollback the same operation as a deploy --
+# re-run it with the previous SHA -- instead of a rebuild-and-pray.
+
+on:
+  workflow_run:
+    workflows: ["Publish images to ECR"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+      image-tag:
+        description: Image tag to deploy (commit SHA). Use a previous SHA to roll back.
+        required: true
+        type: string
+
+env:
+  AWS_REGION: eu-west-1
+  ECR_NAMESPACE: eshop
+  ECS_CLUSTER: eshop-${{ inputs.environment || 'staging' }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Skip automatic runs when the upstream publish workflow failed.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    # Attaching a GitHub Environment is what gives production a required-reviewer gate
+    # and a deployment history, without any of it living in this file.
+    environment:
+      name: ${{ inputs.environment || 'staging' }}
+
+    strategy:
+      # Sequential, not parallel: a bad image should stop after the first service rather
+      # than roll out to all six at once.
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        service:
+          - catalog-api
+          - basket-api
+          - discount-grpc
+          - ordering-api
+          - yarp-api-gateway
+          - shopping-web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-deploy-${{ matrix.service }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve image tag
+        id: tag
+        run: echo "value=${{ inputs.image-tag || github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Download current task definition
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition "${{ matrix.service }}" \
+            --query taskDefinition > task-definition.json
+
+      - name: Point the task definition at the new image
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ matrix.service }}
+          image: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_NAMESPACE }}/${{ matrix.service }}:${{ steps.tag.outputs.value }}
+
+      - name: Deploy and wait for the service to stabilise
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ matrix.service }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          # Blocks until ECS reports steady state. Combined with the ALB health check and
+          # the circuit breaker in ecs.tf, a container that fails /health is rolled back
+          # automatically instead of silently replacing healthy tasks.
+          wait-for-service-stability: true
+          wait-for-minutes: 10
+
+  smoke-test:
+    name: Post-deploy smoke test
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.environment || 'staging' }}
+
+    steps:
+      - name: Probe the gateway health endpoints
+        run: |
+          set -euo pipefail
+          BASE="${{ vars.GATEWAY_BASE_URL }}"
+          if [ -z "$BASE" ]; then
+            echo "::error::GATEWAY_BASE_URL is not set for this environment"; exit 1
+          fi
+
+          for path in /catalog-service/health /basket-service/health /ordering-service/health; do
+            echo "Probing $BASE$path"
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --retry 5 --retry-delay 10 \
+                     --retry-all-errors --max-time 30 "$BASE$path")
+            if [ "$code" != "200" ]; then
+              echo "::error::$path returned $code"; exit 1
+            fi
+          done
+          echo "All services healthy."

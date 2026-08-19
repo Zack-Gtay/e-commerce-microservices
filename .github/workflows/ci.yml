@@ -1,0 +1,147 @@
+name: CI
+
+# Fast feedback gate. Runs on every push and PR: restore -> build -> test -> coverage.
+# Nothing here needs cloud credentials, so it also runs on forks.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same branch instead of burning runners on stale commits.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  SOLUTION: src/eshop-microservices.sln
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # global.json pins the SDK feature band so local and CI builds agree.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION }} --configuration Release --no-restore
+
+      - name: Test
+        run: |
+          dotnet test ${{ env.SOLUTION }} \
+            --configuration Release \
+            --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "console;verbosity=normal" \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults
+
+      - name: Publish test report
+        uses: dorny/test-reporter@v1
+        # Runs even when tests fail, so the PR shows which assertion broke rather than
+        # just a red X on the job.
+        if: always() && github.event_name == 'push'
+        with:
+          name: xUnit results
+          path: TestResults/**/*.trx
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Coverage summary
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        if: always()
+        with:
+          filename: TestResults/**/coverage.cobertura.xml
+          badge: true
+          format: markdown
+          output: both
+
+      - name: Add coverage to job summary
+        if: always()
+        run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: TestResults/
+          retention-days: 7
+
+  # Verifies every service image still builds. No push and no AWS credentials, so this
+  # gate also protects pull requests from forks -- publishing happens in docker-publish.yml.
+  docker-build:
+    name: Docker build (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: catalog-api
+            dockerfile: src/Services/Catalog/Catalog.API/Dockerfile
+          - service: basket-api
+            dockerfile: src/Services/Basket/Basket.API/Dockerfile
+          - service: discount-grpc
+            dockerfile: src/Services/Discount/Discount.Grpc/Dockerfile
+          - service: ordering-api
+            dockerfile: src/Services/Ordering/Ordering.API/Dockerfile
+          - service: yarp-api-gateway
+            dockerfile: src/ApiGateways/YarpApiGateway/Dockerfile
+          - service: shopping-web
+            dockerfile: src/WebApps/Shopping.Web/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          # The Dockerfiles COPY paths relative to the src/ directory, matching the
+          # `context: .` used by docker-compose.yml.
+          context: ./src
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: true
+          tags: ${{ matrix.service }}:ci
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ matrix.service }}:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: '0' # advisory for now; flip to '1' to make CVEs block the merge

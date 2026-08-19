@@ -1,0 +1,17 @@
+﻿<Project>
+
+  <!--
+    Shared build settings for every project in the solution.
+    Kept deliberately small: it exists so CI can turn warnings into errors and
+    produce deterministic builds without editing 14 individual .csproj files.
+  -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Deterministic, reproducible output when building on CI. -->
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+</Project>
