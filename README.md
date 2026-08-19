@@ -8,6 +8,10 @@ Each service is deliberately implemented in a **different architectural style**,
 solution doubles as a side-by-side comparison of how these approaches play out in
 practice.
 
+Around the application sit the pieces a real deployment needs: an xUnit test suite
+(51 tests, no Docker required), four GitHub Actions pipelines that build, scan, publish and
+deploy, and a Terraform stack that provisions the whole thing on AWS ECS Fargate.
+
 ---
 
 ## Architecture
@@ -254,6 +258,9 @@ or restarting without breaking checkout.
 **Data**: PostgreSQL (Marten document DB), SQL Server + SQLite (EF Core), Redis
 **Messaging**: RabbitMQ, MassTransit
 **Gateway**: YARP Reverse Proxy
+**Testing**: xUnit, FluentAssertions, NSubstitute, WireMock.Net, Coverlet
+**CI/CD**: GitHub Actions, Docker Buildx, Trivy, OIDC federation to AWS
+**Cloud**: Terraform, AWS ECS Fargate, ALB, RDS, ElastiCache, Amazon MQ / SQS + SNS, Secrets Manager, CloudWatch
 **Infrastructure**: Docker, Docker Compose
 
 ---
@@ -330,6 +337,13 @@ docker compose -f docker-compose.yml -f docker-compose.override.yml up -d
 Give the databases a moment to finish initializing on first run. A couple of services
 retry their connection until the containers are healthy.
 
+To build and test without Docker:
+
+```bash
+dotnet build src/eshop-microservices.sln
+dotnet test  src/eshop-microservices.sln
+```
+
 ### Endpoints
 
 | Service | HTTP | HTTPS |
@@ -349,26 +363,103 @@ RabbitMQ dashboard before Ordering consumes it.
 
 ---
 
+## Tests
+
+Three xUnit projects, **51 tests**, all in `src/tests/`. They run entirely in-process:
+no Docker, no database, no network, so `dotnet test` is a few seconds on a cold clone.
+
+```bash
+dotnet test src/eshop-microservices.sln
+```
+
+| Project | Tests | What it pins down |
+|---|---|---|
+| `Ordering.Domain.UnitTests` | 29 | `Order` aggregate invariants (status transitions, line-item add/remove, total price, exactly-one `OrderCreatedEvent`, event clearing) and the strongly-typed value objects (`OrderId`, `CustomerId`, `ProductId`, `Address`, `Payment`) |
+| `BuildingBlocks.UnitTests` | 6 | `ValidationBehavior`: short-circuits the pipeline before the handler, aggregates failures across every registered validator, and surfaces property names for the ProblemDetails payload |
+| `Shopping.Web.IntegrationTests` | 16 | The three Refit typed clients against a `WireMockGatewayFixture` standing in for the YARP gateway — real URL templates, real JSON contracts, real error mapping (`ApiException` on a gateway 500) |
+
+Tooling: **xUnit** + **FluentAssertions**, **NSubstitute** for handler doubles,
+**WireMock.Net** for the gateway stub, **Coverlet** for Cobertura coverage in CI.
+
+---
+
+## CI/CD
+
+Four GitHub Actions workflows in `.github/workflows/`. Everything that touches AWS
+authenticates through **GitHub OIDC federation** — an IAM role assumed for the life of the
+job — so there are no long-lived `AWS_ACCESS_KEY_ID` secrets in the repo.
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci.yml` | push / PR to `main` | Restore → build → `dotnet test` with Cobertura coverage and a TRX report, plus a 6-way matrix that builds every service image and scans it with Trivy. No credentials, so it works on forks. |
+| `docker-publish.yml` | push to `main`, `v*` tags | Builds the six images and pushes them to **ECR** tagged with the commit SHA (and `latest`), with Buildx GHA layer caching and a Trivy SARIF scan per image. |
+| `deploy.yml` | after a successful publish, or manual | Rolling **ECS Fargate** deploy: re-renders each task definition onto the new image tag, one service at a time, waits for steady state, then smoke-tests `/health` through the gateway. Rollback is the same workflow with an older SHA. |
+| `terraform.yml` | PR / push touching `infra/terraform/**` | `fmt -check` → `validate` → tflint → Trivy config scan → `plan` posted as a PR comment, then applies **that exact uploaded plan** on `main` behind a GitHub Environment reviewer gate. |
+
+---
+
+## Cloud infrastructure
+
+`infra/terraform/` describes the AWS target environment in 13 `.tf` files, with S3 remote
+state and native lockfile locking. The service topology lives in a single `locals.services`
+map in `main.tf`; every ECR repository, log group, task definition, ECS service, Cloud Map
+entry and alarm is generated from it, so adding a seventh microservice is one map entry.
+
+| File | Resources |
+|---|---|
+| `vpc.tf` | VPC across 2 AZs, public/private subnets, IGW + NAT, three tiered security groups (ALB → tasks → data) |
+| `ecs.tf` | Fargate cluster with Fargate Spot, per-service task definitions, Cloud Map service discovery, execution/task IAM roles, CPU target-tracking autoscaling, deployment circuit breaker |
+| `alb.tf` | Public ALB; only `shopping-web` and `yarp-api-gateway` are internet-facing, the four services stay private |
+| `ecr.tf` | One repository per service with lifecycle expiry |
+| `rds.tf` | PostgreSQL for the Catalog/Basket document stores; SQL Server for Ordering behind `enable_sqlserver` (off by default — it is expensive to idle) |
+| `elasticache.tf` | Redis replication group for the basket cache |
+| `sqs.tf` | Amazon MQ for RabbitMQ (drop-in for the shipped MassTransit transport) **and** SNS → SQS with a dead-letter queue, the AWS-native target state |
+| `secrets.tf` | Secrets Manager entries injected into tasks as container secrets |
+| `observability.tf` | CloudWatch dashboard, log metric filter for slow requests, and alarms on CPU, zero running tasks, ALB 5xx and p99 latency, DLQ depth and queue age |
+| `oidc.tf` | The GitHub OIDC provider and the deploy role the workflows assume |
+
+```bash
+cd infra/terraform
+terraform init -backend-config=backend.hcl   # see backend.hcl.example
+terraform plan
+```
+
+Nothing here is required to run the app locally — Docker Compose remains the development
+path.
+
+---
+
 ## Project structure
 
 ```
-src/
-├── ApiGateways/
-│   └── YarpApiGateway/           # YARP reverse proxy + rate limiting
-├── BuildingBlocks/
-│   ├── BuildingBlocks/           # CQRS, behaviors, exceptions, pagination
-│   └── BuildingBlocks.Messaging/ # MassTransit config, integration events
-├── Services/
-│   ├── Catalog/Catalog.API/      # Vertical Slice + CQRS
-│   ├── Basket/Basket.API/        # Vertical Slice + Redis cache-aside
-│   ├── Discount/Discount.Grpc/   # N-Layer gRPC service
-│   └── Ordering/                 # Clean Architecture + DDD
-│       ├── Ordering.Domain/
-│       ├── Ordering.Application/
-│       ├── Ordering.Infrastructure/
-│       └── Ordering.API/
-└── WebApps/
-    └── Shopping.Web/             # Razor Pages client
+.
+├── .github/workflows/                 # four pipelines, see CI/CD below
+├── infra/terraform/                   # AWS environment as code, see Cloud infrastructure
+├── global.json                        # pins the .NET 8 SDK band so local and CI agree
+└── src/
+    ├── eshop-microservices.sln        # 15 entries: 11 app projects, 3 test projects, docker-compose.dcproj
+    ├── docker-compose.yml             # the 11 containers
+    ├── docker-compose.override.yml    # connection strings, ports, broker credentials
+    ├── ApiGateways/
+    │   └── YarpApiGateway/            # YARP reverse proxy + rate limiting
+    ├── BuildingBlocks/
+    │   ├── BuildingBlocks/            # CQRS, behaviors, exceptions, pagination
+    │   └── BuildingBlocks.Messaging/  # MassTransit config, integration events
+    ├── Services/
+    │   ├── Catalog/Catalog.API/       # Vertical Slice + CQRS
+    │   ├── Basket/Basket.API/         # Vertical Slice + Redis cache-aside
+    │   ├── Discount/Discount.Grpc/    # N-Layer gRPC service
+    │   └── Ordering/                  # Clean Architecture + DDD
+    │       ├── Ordering.Domain/
+    │       ├── Ordering.Application/
+    │       ├── Ordering.Infrastructure/
+    │       └── Ordering.API/
+    ├── WebApps/
+    │   └── Shopping.Web/              # Razor Pages client
+    └── tests/
+        ├── BuildingBlocks.UnitTests/       # MediatR pipeline behaviors
+        ├── Ordering.Domain.UnitTests/      # aggregate + value object invariants
+        └── Shopping.Web.IntegrationTests/  # Refit clients against a stubbed gateway
 ```
 
 ---
@@ -377,11 +468,14 @@ src/
 
 - Authentication and authorization (ASP.NET Core Identity / JWT). The UI currently
   assumes a fixed customer id
-- Move connection strings out of `appsettings.json` into environment variables and
-  user-secrets
-- Integration and unit test coverage
+- Move local connection strings out of `appsettings.json` into user-secrets (the AWS path
+  already pulls them from Secrets Manager)
+- Switch `BuildingBlocks.Messaging` from `UsingRabbitMq` to `UsingAmazonSqs` so the SNS/SQS
+  resources in `sqs.tf` become the messaging backbone
+- Service-level API tests against real containers (Testcontainers), on top of the current
+  domain and web-tier suites
 - Structured logging and distributed tracing (Serilog, OpenTelemetry)
-- Kubernetes manifests / Helm chart
+- Promote the Terraform stack to a production environment with a custom domain and TLS
 
 ---
 
